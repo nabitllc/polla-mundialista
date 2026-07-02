@@ -40,8 +40,10 @@ export interface Match {
   away_team: string;
   kickoff: string;
   venue: string | null;
-  home_score: number | null;
+  home_score: number | null; // goles a los 90' (regular) — con esto se dan los puntos
   away_score: number | null;
+  home_extra?: number | null; // goles marcados en tiempo extra (se muestran como "+N")
+  away_extra?: number | null;
   home_penalties?: number | null;
   away_penalties?: number | null;
   status: MatchStatus;

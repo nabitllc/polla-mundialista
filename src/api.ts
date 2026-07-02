@@ -112,16 +112,17 @@ export const api = {
     id: number,
     homeScore: number,
     awayScore: number,
-    homePenalties?: number | null,
-    awayPenalties?: number | null,
+    extra?: { homeExtra?: number | null; awayExtra?: number | null; homePenalties?: number | null; awayPenalties?: number | null },
   ) =>
     request<Match>(`/api/matches/${id}/result`, {
       method: 'POST',
       body: JSON.stringify({
         home_score: homeScore,
         away_score: awayScore,
-        home_penalties: homePenalties ?? null,
-        away_penalties: awayPenalties ?? null,
+        home_extra: extra?.homeExtra ?? null,
+        away_extra: extra?.awayExtra ?? null,
+        home_penalties: extra?.homePenalties ?? null,
+        away_penalties: extra?.awayPenalties ?? null,
       }),
     }),
   deleteMatch: (id: number) => request<{ ok: boolean }>(`/api/matches/${id}`, { method: 'DELETE' }),

@@ -34,13 +34,22 @@ export function MatchAdminRow({
   const [stage, setStage] = useState<MatchStage>(match.stage);
   const [homeScore, setHomeScore] = useState(match.home_score?.toString() ?? '');
   const [awayScore, setAwayScore] = useState(match.away_score?.toString() ?? '');
+  const [homeExtra, setHomeExtra] = useState(match.home_extra?.toString() ?? '');
+  const [awayExtra, setAwayExtra] = useState(match.away_extra?.toString() ?? '');
   const [homePens, setHomePens] = useState(match.home_penalties?.toString() ?? '');
   const [awayPens, setAwayPens] = useState(match.away_penalties?.toString() ?? '');
   const [error, setError] = useState('');
 
-  // Penaltis: solo en eliminatoria y cuando el marcador quedó empatado.
-  const tieEntered = homeScore !== '' && homeScore === awayScore;
-  const showPenaltyInputs = match.stage !== 'grupos' && tieEntered;
+  const knockout = match.stage !== 'grupos';
+  const num = (v: string) => (v === '' ? 0 : Number(v));
+  // En eliminatoria se pueden agregar goles de alargue (+N). Los penaltis aparecen solo
+  // si el TOTAL (90' + alargue) quedó empatado.
+  const showExtraInputs = knockout && homeScore !== '' && awayScore !== '';
+  const totalTie =
+    homeScore !== '' &&
+    awayScore !== '' &&
+    num(homeScore) + num(homeExtra) === num(awayScore) + num(awayExtra);
+  const showPenaltyInputs = knockout && totalTie;
 
   const run = async (action: () => Promise<unknown>) => {
     setError('');
@@ -60,9 +69,18 @@ export function MatchAdminRow({
 
   const handleResult = (event: FormEvent) => {
     event.preventDefault();
+    const he = showExtraInputs && homeExtra !== '' ? Number(homeExtra) : null;
+    const ae = showExtraInputs && awayExtra !== '' ? Number(awayExtra) : null;
     const hp = showPenaltyInputs && homePens !== '' ? Number(homePens) : null;
     const ap = showPenaltyInputs && awayPens !== '' ? Number(awayPens) : null;
-    void run(() => api.registerResult(match.id, Number(homeScore), Number(awayScore), hp, ap));
+    void run(() =>
+      api.registerResult(match.id, Number(homeScore), Number(awayScore), {
+        homeExtra: he,
+        awayExtra: ae,
+        homePenalties: hp,
+        awayPenalties: ap,
+      }),
+    );
   };
 
   const pickAction = (event: MouseEvent, action: () => void) => {
@@ -194,6 +212,30 @@ export function MatchAdminRow({
             required
           />
           <span>{match.away_team}</span>
+          {showExtraInputs && (
+            <div className="penalty-row">
+              <span className="penalty-label">⏱️ Goles en alargue (+, si hubo):</span>
+              <input
+                type="number"
+                min={0}
+                max={99}
+                value={homeExtra}
+                onChange={(e) => setHomeExtra(e.target.value)}
+                placeholder="0"
+                aria-label={`Alargue ${match.home_team}`}
+              />
+              <span>-</span>
+              <input
+                type="number"
+                min={0}
+                max={99}
+                value={awayExtra}
+                onChange={(e) => setAwayExtra(e.target.value)}
+                placeholder="0"
+                aria-label={`Alargue ${match.away_team}`}
+              />
+            </div>
+          )}
           {showPenaltyInputs && (
             <div className="penalty-row">
               <span className="penalty-label">🥅 Penaltis (si hubo tanda):</span>

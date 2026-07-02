@@ -1,17 +1,29 @@
 import type { Match, MatchStatus } from '../shared/types';
 import { kickoffDate } from '../shared/time';
 
-// Goles de un lado; si hubo penaltis, los muestra en paréntesis: "1 (4)".
-export function sideScore(goals: number | null | undefined, penalties: number | null | undefined): string {
+// Goles de un lado (90'), con el alargue como "+N" y los penaltis en "(N)".
+// Ej.: "2 +1" (gol en tiempo extra), "1 (4)" (penaltis), "1 +1 (4)" (alargue + penaltis).
+export function sideScore(
+  goals: number | null | undefined,
+  extra?: number | null,
+  penalties?: number | null,
+): string {
   if (goals == null) {
     return '';
   }
-  return penalties != null ? `${goals} (${penalties})` : `${goals}`;
+  let s = `${goals}`;
+  if (extra != null && extra > 0) {
+    s += ` +${extra}`;
+  }
+  if (penalties != null) {
+    s += ` (${penalties})`;
+  }
+  return s;
 }
 
-// Marcador completo "1 (4) - 1 (2)".
+// Marcador completo, ej. "2 +1 - 2" o "1 (4) - 1 (2)".
 export function scoreLine(match: Match): string {
-  return `${sideScore(match.home_score, match.home_penalties)} - ${sideScore(match.away_score, match.away_penalties)}`;
+  return `${sideScore(match.home_score, match.home_extra, match.home_penalties)} - ${sideScore(match.away_score, match.away_extra, match.away_penalties)}`;
 }
 
 // Todos los horarios de partidos se muestran en hora de Colombia (UTC-5),

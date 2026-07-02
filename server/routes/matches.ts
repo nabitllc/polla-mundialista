@@ -143,7 +143,7 @@ matchesRouter.post('/:id/reopen', async (req, res) => {
   await db.batch(
     [
       {
-        sql: "UPDATE matches SET status = 'pendiente', home_score = NULL, away_score = NULL, home_penalties = NULL, away_penalties = NULL WHERE id = ?",
+        sql: "UPDATE matches SET status = 'pendiente', home_score = NULL, away_score = NULL, home_extra = NULL, away_extra = NULL, home_penalties = NULL, away_penalties = NULL WHERE id = ?",
         args: [match.id],
       },
       // Borra el aviso de resultado para que, al volver a registrarlo, se anuncie de nuevo.
@@ -159,10 +159,6 @@ matchesRouter.post('/:id/result', async (req, res) => {
   const body = req.body as Record<string, unknown>;
   const homeScore = asGoals(body?.home_score);
   const awayScore = asGoals(body?.away_score);
-  // Penaltis: solo tienen sentido si el partido quedó empatado en goles.
-  const tied = homeScore !== null && awayScore !== null && homeScore === awayScore;
-  const homePens = tied ? asPenalty(body?.home_penalties) : null;
-  const awayPens = tied ? asPenalty(body?.away_penalties) : null;
   const match = id ? await getMatch(id) : undefined;
   if (!match) {
     res.status(404).json({ error: 'Partido no encontrado.' });
@@ -172,9 +168,17 @@ matchesRouter.post('/:id/result', async (req, res) => {
     res.status(400).json({ error: 'El marcador debe ser un número entero entre 0 y 99.' });
     return;
   }
+  // El marcador (para puntos) es el de los 90'. En eliminatoria puede haber goles de
+  // alargue (+N) y, si el TOTAL queda empatado, tanda de penaltis.
+  const knockout = match.stage !== 'grupos';
+  const homeExtra = knockout ? asPenalty(body?.home_extra) : null;
+  const awayExtra = knockout ? asPenalty(body?.away_extra) : null;
+  const tiedTotal = homeScore + (homeExtra ?? 0) === awayScore + (awayExtra ?? 0);
+  const homePens = knockout && tiedTotal ? asPenalty(body?.home_penalties) : null;
+  const awayPens = knockout && tiedTotal ? asPenalty(body?.away_penalties) : null;
   await db.execute({
-    sql: "UPDATE matches SET home_score = ?, away_score = ?, home_penalties = ?, away_penalties = ?, status = 'finalizado' WHERE id = ?",
-    args: [homeScore, awayScore, homePens, awayPens, match.id],
+    sql: "UPDATE matches SET home_score = ?, away_score = ?, home_extra = ?, away_extra = ?, home_penalties = ?, away_penalties = ?, status = 'finalizado' WHERE id = ?",
+    args: [homeScore, awayScore, homeExtra, awayExtra, homePens, awayPens, match.id],
   });
   // Anuncio inmediato al grupo (marcador + tabla). Si Telegram falla, el cron reintenta.
   try {

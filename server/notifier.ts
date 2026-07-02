@@ -207,6 +207,8 @@ export async function sendResultAlerts(): Promise<number> {
   for (const match of pending) {
     const homeScore = match.home_score as number;
     const awayScore = match.away_score as number;
+    const heTxt = match.home_extra ? ` +${match.home_extra}` : '';
+    const aeTxt = match.away_extra ? ` +${match.away_extra}` : '';
     const hpTxt = match.home_penalties != null ? ` (${match.home_penalties})` : '';
     const apTxt = match.away_penalties != null ? ` (${match.away_penalties})` : '';
 
@@ -243,7 +245,7 @@ export async function sendResultAlerts(): Promise<number> {
     });
 
     const text = [
-      `✅ Final: ${homeWithFlag(match.home_team)} ${homeScore}${hpTxt} - ${awayScore}${apTxt} ${awayWithFlag(match.away_team)}`,
+      `✅ Final: ${homeWithFlag(match.home_team)} ${homeScore}${heTxt}${hpTxt} - ${awayScore}${aeTxt}${apTxt} ${awayWithFlag(match.away_team)}`,
       '',
       '📊 Tabla actualizada:',
       ...tableLines,

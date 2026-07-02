@@ -102,11 +102,16 @@ export function KnockoutBracket({
     const done = match.status === 'finalizado';
     const hs = match.home_score;
     const as = match.away_score;
+    const he = match.home_extra ?? null;
+    const ae = match.away_extra ?? null;
     const hp = match.home_penalties ?? null;
     const ap = match.away_penalties ?? null;
-    const penWin = hs !== null && as !== null && hs === as && hp !== null && ap !== null;
-    const homeWon = done && hs !== null && as !== null && (hs > as || (penWin && hp > ap));
-    const awayWon = done && hs !== null && as !== null && (as > hs || (penWin && ap > hp));
+    // El ganador se decide por el total (90' + alargue) y luego por penaltis.
+    const th = (hs ?? 0) + (he ?? 0);
+    const ta = (as ?? 0) + (ae ?? 0);
+    const penWin = th === ta && hp !== null && ap !== null;
+    const homeWon = done && hs !== null && as !== null && (th > ta || (penWin && hp > ap));
+    const awayWon = done && hs !== null && as !== null && (ta > th || (penWin && ap > hp));
     // Solo en Inicio y solo en cruces abiertos: el borde del cuadro es un anillo de
     // progreso (cuántos predijeron). Si TÚ no has predicho, el borde va punteado.
     const open = match.status === 'pendiente';
@@ -156,11 +161,11 @@ export function KnockoutBracket({
         )}
         <div className={homeWon ? 'bk-row winner' : 'bk-row'}>
           <TeamLabel name={match.home_team} side="home" />
-          <span className="bk-score">{done ? sideScore(hs, match.home_penalties) : ''}</span>
+          <span className="bk-score">{done ? sideScore(hs, he, match.home_penalties) : ''}</span>
         </div>
         <div className={awayWon ? 'bk-row winner' : 'bk-row'}>
           <TeamLabel name={match.away_team} side="home" />
-          <span className="bk-score">{done ? sideScore(as, match.away_penalties) : ''}</span>
+          <span className="bk-score">{done ? sideScore(as, ae, match.away_penalties) : ''}</span>
         </div>
         {!compact && (
           <div className="bk-meta">

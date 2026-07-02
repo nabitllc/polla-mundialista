@@ -97,15 +97,18 @@ export function resolveGroupSlots(matches: Match[]): Map<string, string> {
   return resolved;
 }
 
-// Ganador/perdedor de un partido terminado (por goles; si hay empate, por penaltis).
+// Ganador/perdedor de un cruce terminado: cuenta el total (90' + alargue) y, si sigue
+// empatado, la tanda de penaltis. (Los PUNTOS, en cambio, van solo por los 90'.)
 function decideMatch(m: Match): { winner: string | null; loser: string | null } {
   if (m.home_score == null || m.away_score == null) {
     return { winner: null, loser: null };
   }
-  if (m.home_score > m.away_score) {
+  const totalHome = m.home_score + (m.home_extra ?? 0);
+  const totalAway = m.away_score + (m.away_extra ?? 0);
+  if (totalHome > totalAway) {
     return { winner: m.home_team, loser: m.away_team };
   }
-  if (m.away_score > m.home_score) {
+  if (totalAway > totalHome) {
     return { winner: m.away_team, loser: m.home_team };
   }
   const hp = m.home_penalties;

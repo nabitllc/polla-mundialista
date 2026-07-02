@@ -96,6 +96,8 @@ interface ApiMatch {
   awayTeam: ApiTeam;
   score: {
     fullTime: { home: number | null; away: number | null };
+    regularTime?: { home: number | null; away: number | null };
+    extraTime?: { home: number | null; away: number | null };
     penalties?: { home: number | null; away: number | null };
   };
 }
@@ -223,14 +225,17 @@ export async function syncFromFootballData(): Promise<SyncCounts> {
     if (!home || !away) {
       continue;
     }
-    const rawHome = apiMatch.score.fullTime.home;
-    const rawAway = apiMatch.score.fullTime.away;
+    // Los puntos se dan por el marcador de los 90' (regularTime). Si hubo prórroga o
+    // penaltis, football-data trae regularTime (90'), extraTime (goles del alargue) y
+    // penalties por separado; si no, fullTime ES el marcador de los 90'.
+    const reg = apiMatch.score.regularTime;
+    const et = apiMatch.score.extraTime;
+    const homeScore = reg ? reg.home : apiMatch.score.fullTime.home;
+    const awayScore = reg ? reg.away : apiMatch.score.fullTime.away;
+    const homeExtra = et ? et.home : null;
+    const awayExtra = et ? et.away : null;
     const homePens = apiMatch.score.penalties?.home ?? null;
     const awayPens = apiMatch.score.penalties?.away ?? null;
-    // football-data suma los penaltis al marcador de fullTime; los goles del partido
-    // (90' + prórroga) son fullTime menos la tanda. Así se ve "1 (3)" y no "4 (3)".
-    const homeScore = rawHome !== null && homePens !== null ? rawHome - homePens : rawHome;
-    const awayScore = rawAway !== null && awayPens !== null ? rawAway - awayPens : rawAway;
     const finished = apiMatch.status === 'FINISHED' && homeScore !== null && awayScore !== null;
     if (finished) {
       checked += 1;
@@ -248,8 +253,8 @@ export async function syncFromFootballData(): Promise<SyncCounts> {
       }
       const kickoff = toColombiaKickoff(apiMatch.utcDate);
       await db.execute({
-        sql: `INSERT INTO matches (home_team, away_team, kickoff, venue, stage, home_score, away_score, home_penalties, away_penalties, status)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sql: `INSERT INTO matches (home_team, away_team, kickoff, venue, stage, home_score, away_score, home_extra, away_extra, home_penalties, away_penalties, status)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
           home,
           away,
@@ -258,6 +263,8 @@ export async function syncFromFootballData(): Promise<SyncCounts> {
           stage,
           finished ? homeScore : null,
           finished ? awayScore : null,
+          finished ? homeExtra : null,
+          finished ? awayExtra : null,
           finished ? homePens : null,
           finished ? awayPens : null,
           finished ? 'finalizado' : 'pendiente',
@@ -273,12 +280,14 @@ export async function syncFromFootballData(): Promise<SyncCounts> {
         match.status === 'finalizado' &&
         match.home_score === homeScore &&
         match.away_score === awayScore &&
+        (match.home_extra ?? null) === homeExtra &&
+        (match.away_extra ?? null) === awayExtra &&
         (match.home_penalties ?? null) === homePens &&
         (match.away_penalties ?? null) === awayPens;
       if (!alreadyCorrect) {
         await db.execute({
-          sql: "UPDATE matches SET home_score = ?, away_score = ?, home_penalties = ?, away_penalties = ?, status = 'finalizado' WHERE id = ?",
-          args: [homeScore, awayScore, homePens, awayPens, match.id],
+          sql: "UPDATE matches SET home_score = ?, away_score = ?, home_extra = ?, away_extra = ?, home_penalties = ?, away_penalties = ?, status = 'finalizado' WHERE id = ?",
+          args: [homeScore, awayScore, homeExtra, awayExtra, homePens, awayPens, match.id],
         });
         updated += 1;
       }
